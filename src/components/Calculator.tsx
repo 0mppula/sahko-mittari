@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { calcMagnitudeChange, getDecimalPlaces, round } from '@/lib/utils';
+import { calcMagnitudeChange, round } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { ControllerRenderProps, Path, useForm } from 'react-hook-form';
@@ -183,13 +183,7 @@ const Calculator = () => {
 		const originalVal = form.getValues(multipliedField) as number;
 		const newValCoefficient = Math.pow(10, calcMagnitudeChange(oldMultiplier, newMultiplier));
 
-		form.setValue(
-			multipliedField,
-			round(
-				newValCoefficient * originalVal,
-				getDecimalPlaces(newValCoefficient * originalVal)
-			)
-		);
+		form.setValue(multipliedField, round(newValCoefficient * originalVal));
 
 		field.onChange(val);
 	};
@@ -470,10 +464,7 @@ const Calculator = () => {
 					<div className="flex gap-2 flex-wrap">
 						<Input
 							className="w-full shrink grow basis-32"
-							value={round(
-								result.value * Number(resultsMultiplier),
-								getDecimalPlaces(result.value * Number(resultsMultiplier))
-							)}
+							value={round(result.value * Number(resultsMultiplier))}
 							type="number"
 							readOnly
 						/>
