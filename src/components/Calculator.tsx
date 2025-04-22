@@ -18,87 +18,21 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { currentUnitValues, powerUnitValues, voltageUnitValues } from '@/constants';
 import { calcMagnitudeChange, round } from '@/lib/utils';
+import { formSchema, resultsFormSchema } from '@/schemas';
+import { calcModeType, CurrentUnit, PowerUnit, VoltageUnit } from '@/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { ControllerRenderProps, Path, useForm } from 'react-hook-form';
 import { z } from 'zod';
-
-export const voltageUnitValues = [
-	{ value: 'mV', label: 'Millivolts', multiplier: 1_000 },
-	{ value: 'V', label: 'Volts', multiplier: 1 },
-	{ value: 'kV', label: 'Kilovolts', multiplier: 0.001 },
-	{ value: 'MV', label: 'Megavolts', multiplier: 0.000_001 },
-	{ value: 'GV', label: 'Gigavolts', multiplier: 0.000_000_001 },
-] as const;
-
-export const currentUnitValues = [
-	{ value: 'A', label: 'Amperes', multiplier: 1 },
-	{ value: 'mA', label: 'Milliamperes', multiplier: 1_000 },
-	{ value: 'µA', label: 'Microamperes', multiplier: 1_000_000 },
-] as const;
-
-export const powerUnitValues = [
-	{ value: 'pW', label: 'Picowatts', multiplier: 1_000_000_000_000 },
-	{ value: 'nW', label: 'Nanowatts', multiplier: 1_000_000_000 },
-	{ value: 'µW', label: 'Microwatts', multiplier: 1_000_000 },
-	{ value: 'mW', label: 'Milliwatts', multiplier: 1_000 },
-	{ value: 'W', label: 'Watts', multiplier: 1 },
-	{ value: 'kW', label: 'Kilowatts', multiplier: 0.001 },
-	{ value: 'MW', label: 'Megawatts', multiplier: 0.000_001 },
-	{ value: 'GW', label: 'Gigawatts', multiplier: 0.000_000_001 },
-	{ value: 'TW', label: 'Terawatts', multiplier: 0.000_000_000_001 },
-] as const;
-
-export type VoltageUnit = (typeof voltageUnitValues)[number]['value'];
-export type VoltageUnitLabel = (typeof voltageUnitValues)[number]['label'];
-
-export type CurrentUnit = (typeof currentUnitValues)[number]['value'];
-export type CurrentUnitLabel = (typeof currentUnitValues)[number]['label'];
-
-export type PowerUnit = (typeof powerUnitValues)[number]['value'];
-export type PowerUnitLabel = (typeof powerUnitValues)[number]['label'];
-
-const formSchema = z.object({
-	voltage: z.coerce
-		.number({
-			required_error: 'Voltage is required',
-			invalid_type_error: 'Voltage has to be a positive number',
-		})
-		.min(0, {
-			message: `Voltage cannot be negative`,
-		}),
-	voltageUnit: z.string(),
-	current: z.coerce
-		.number({
-			required_error: 'Current is required',
-			invalid_type_error: 'Current has to be a positive number',
-		})
-		.min(0, {
-			message: `Current cannot be negative`,
-		}),
-	currentUnit: z.string(),
-	power: z.coerce
-		.number({
-			required_error: 'Power is required',
-			invalid_type_error: 'Power has to be a positive number',
-		})
-		.min(0, {
-			message: `Power cannot be negative`,
-		}),
-	powerUnit: z.string(),
-});
-
-const resultsFormSchema = z.object({
-	multiplier: z.number(),
-});
+import Results from './Results';
 
 const Calculator = () => {
-	const [calcMode, setCalcMode] = useState<'power' | 'current' | 'voltage'>('power');
+	const [calcMode, setCalcMode] = useState<calcModeType>('power');
 	const [isCalculated, setIsCalculated] = useState(false);
-	const [result, setResult] = useState({ value: 0 });
+	const [result, setResult] = useState(0);
 
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),
@@ -114,9 +48,7 @@ const Calculator = () => {
 
 	const resultsForm = useForm<z.infer<typeof resultsFormSchema>>({
 		resolver: zodResolver(resultsFormSchema),
-		defaultValues: {
-			multiplier: 1,
-		},
+		defaultValues: { multiplier: 1 },
 	});
 
 	const resultsMultiplier = resultsForm.watch('multiplier');
@@ -132,16 +64,16 @@ const Calculator = () => {
 		const { current, power, voltage, voltageUnit, currentUnit, powerUnit } = values;
 
 		// Units normalized to base units eg. 1kW -> 1000W
-		const voltageMultiplier = voltageUnitValues.find((u) => u.value === voltageUnit)
+		const voltageMultip = voltageUnitValues.find((u) => u.value === voltageUnit)
 			?.multiplier as number;
-		const currentMultiplier = currentUnitValues.find((u) => u.value === currentUnit)
+		const currentMultip = currentUnitValues.find((u) => u.value === currentUnit)
 			?.multiplier as number;
-		const powerMultiplier = powerUnitValues.find((u) => u.value === powerUnit)
+		const powerMultip = powerUnitValues.find((u) => u.value === powerUnit)
 			?.multiplier as number;
 
-		const VoltageN = voltage / voltageMultiplier;
-		const CurrentN = current / currentMultiplier;
-		const powerN = power / powerMultiplier;
+		const VoltageN = voltage / voltageMultip;
+		const CurrentN = current / currentMultip;
+		const powerN = power / powerMultip;
 
 		const V = isFinite(powerN / CurrentN) ? powerN / CurrentN : 0;
 		const I = isFinite(powerN / VoltageN) ? powerN / VoltageN : 0;
@@ -150,15 +82,15 @@ const Calculator = () => {
 		setIsCalculated(true);
 
 		if (calcMode === 'power') {
-			setResult({ value: P });
+			setResult(P);
 		}
 
 		if (calcMode === 'voltage') {
-			setResult({ value: V });
+			setResult(V);
 		}
 
 		if (calcMode === 'current') {
-			setResult({ value: I });
+			setResult(I);
 		}
 
 		return { V, I, P };
@@ -170,18 +102,18 @@ const Calculator = () => {
 	};
 
 	const handleSelectChange = (
-		val: VoltageUnit,
+		val: VoltageUnit | CurrentUnit | PowerUnit,
 		field: ControllerRenderProps<z.infer<typeof formSchema>>,
 		fieldName: Path<z.infer<typeof formSchema>>,
 		multipliedField: Path<z.infer<typeof formSchema>>,
 		unitsDataArray: typeof voltageUnitValues | typeof currentUnitValues | typeof powerUnitValues
 	) => {
-		const newMultiplier = unitsDataArray.find((v) => v.value === val)?.multiplier as number;
-		const oldMultiplier = unitsDataArray.find((v) => v.value === form.getValues(fieldName))
+		const newMultip = unitsDataArray.find((v) => v.value === val)?.multiplier as number;
+		const oldMultip = unitsDataArray.find((v) => v.value === form.getValues(fieldName))
 			?.multiplier as number;
 
 		const originalVal = form.getValues(multipliedField) as number;
-		const newValCoefficient = Math.pow(10, calcMagnitudeChange(oldMultiplier, newMultiplier));
+		const newValCoefficient = Math.pow(10, calcMagnitudeChange(oldMultip, newMultip));
 
 		form.setValue(multipliedField, round(newValCoefficient * originalVal));
 
@@ -327,7 +259,7 @@ const Calculator = () => {
 										render={({ field }) => (
 											<FormItem className="self-end w-full shrink grow basis-32">
 												<Select
-													onValueChange={(val: VoltageUnit) =>
+													onValueChange={(val: CurrentUnit) =>
 														handleSelectChange(
 															val,
 															field,
@@ -398,7 +330,7 @@ const Calculator = () => {
 										render={({ field }) => (
 											<FormItem className="self-end w-full shrink grow basis-32">
 												<Select
-													onValueChange={(val: VoltageUnit) =>
+													onValueChange={(val: PowerUnit) =>
 														handleSelectChange(
 															val,
 															field,
@@ -450,83 +382,13 @@ const Calculator = () => {
 			</Card>
 
 			{isCalculated && (
-				<div className="w-full space-y-4 mt-2">
-					<div className="w-full flex gap-4 justify-between items-center">
-						<Separator className="my-4 flex-1" />
-
-						<h2 className="scroll-m-20 text-2xl font-semibold tracking-tight">
-							Result
-						</h2>
-
-						<Separator className="my-4 flex-1" />
-					</div>
-
-					<div className="flex gap-2 flex-wrap">
-						<Input
-							className="w-full shrink grow basis-32"
-							value={round(result.value * Number(resultsMultiplier))}
-							type="number"
-							readOnly
-						/>
-
-						<Form {...form}>
-							<form className="w-full shrink grow basis-32">
-								<FormField
-									control={resultsForm.control}
-									name="multiplier"
-									render={({ field }) => (
-										<FormItem>
-											<Select
-												onValueChange={field.onChange}
-												defaultValue={String(field.value)}
-											>
-												<FormControl>
-													<SelectTrigger className="w-full shrink grow basis-32">
-														<SelectValue />
-													</SelectTrigger>
-												</FormControl>
-
-												<SelectContent>
-													{calcMode == 'power' &&
-														powerUnitValues.map((u, i) => (
-															<SelectItem
-																key={`${u.value}-${i}-res`}
-																value={String(u.multiplier)}
-															>
-																{u.label} ({u.value})
-															</SelectItem>
-														))}
-
-													{calcMode == 'voltage' &&
-														voltageUnitValues.map((u, i) => (
-															<SelectItem
-																key={`${u.value}-${i}-res`}
-																value={String(u.multiplier)}
-															>
-																{u.label} ({u.value})
-															</SelectItem>
-														))}
-
-													{calcMode == 'current' &&
-														currentUnitValues.map((u, i) => (
-															<SelectItem
-																key={`${u.value}-${i}-res`}
-																value={String(u.multiplier)}
-															>
-																{u.label} ({u.value})
-															</SelectItem>
-														))}
-												</SelectContent>
-											</Select>
-
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-							</form>
-						</Form>
-					</div>
-				</div>
+				<Results
+					form={form}
+					resultsForm={resultsForm}
+					result={result}
+					resultsMultiplier={resultsMultiplier}
+					calcMode={calcMode}
+				/>
 			)}
 		</>
 	);
