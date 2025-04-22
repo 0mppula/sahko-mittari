@@ -20,9 +20,10 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { calcMagnitudeChange, getDecimalPlaces, round } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { ControllerRenderProps, Path, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 export const voltageUnitValues = [
@@ -130,34 +131,34 @@ const Calculator = () => {
 		// P = power in watts (W) or I * V
 		const { current, power, voltage, voltageUnit, currentUnit, powerUnit } = values;
 
-		const V = isFinite(power / current) ? power / current : 0;
-		const I = isFinite(power / voltage) ? power / voltage : 0;
-		const P = current * voltage;
+		// Units normalized to base units eg. 1kW -> 1000W
+		const voltageMultiplier = voltageUnitValues.find((u) => u.value === voltageUnit)
+			?.multiplier as number;
+		const currentMultiplier = currentUnitValues.find((u) => u.value === currentUnit)
+			?.multiplier as number;
+		const powerMultiplier = powerUnitValues.find((u) => u.value === powerUnit)
+			?.multiplier as number;
+
+		const VoltageN = voltage / voltageMultiplier;
+		const CurrentN = current / currentMultiplier;
+		const powerN = power / powerMultiplier;
+
+		const V = isFinite(powerN / CurrentN) ? powerN / CurrentN : 0;
+		const I = isFinite(powerN / VoltageN) ? powerN / VoltageN : 0;
+		const P = CurrentN * VoltageN;
 
 		setIsCalculated(true);
 
 		if (calcMode === 'power') {
-			setResult((prev) => ({
-				...prev,
-				value: P,
-				unit: powerUnit,
-			}));
+			setResult({ value: P });
 		}
 
 		if (calcMode === 'voltage') {
-			setResult((prev) => ({
-				...prev,
-				value: V,
-				unit: voltageUnit,
-			}));
+			setResult({ value: V });
 		}
 
 		if (calcMode === 'current') {
-			setResult((prev) => ({
-				...prev,
-				value: I,
-				unit: currentUnit,
-			}));
+			setResult({ value: I });
 		}
 
 		return { V, I, P };
@@ -166,6 +167,31 @@ const Calculator = () => {
 	const handleFormReset = () => {
 		form.reset();
 		setIsCalculated(false);
+	};
+
+	const handleSelectChange = (
+		val: VoltageUnit,
+		field: ControllerRenderProps<z.infer<typeof formSchema>>,
+		fieldName: Path<z.infer<typeof formSchema>>,
+		multipliedField: Path<z.infer<typeof formSchema>>,
+		unitsDataArray: typeof voltageUnitValues | typeof currentUnitValues | typeof powerUnitValues
+	) => {
+		const newMultiplier = unitsDataArray.find((v) => v.value === val)?.multiplier as number;
+		const oldMultiplier = unitsDataArray.find((v) => v.value === form.getValues(fieldName))
+			?.multiplier as number;
+
+		const originalVal = form.getValues(multipliedField) as number;
+		const newValCoefficient = Math.pow(10, calcMagnitudeChange(oldMultiplier, newMultiplier));
+
+		form.setValue(
+			multipliedField,
+			round(
+				newValCoefficient * originalVal,
+				getDecimalPlaces(newValCoefficient * originalVal)
+			)
+		);
+
+		field.onChange(val);
 	};
 
 	const isFieldEmpty = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -218,7 +244,6 @@ const Calculator = () => {
 														{...field}
 														placeholder="2"
 														type="number"
-														min={0}
 														onBlur={(e) =>
 															isFieldEmpty(e) &&
 															form.setValue('voltage', 0)
@@ -235,7 +260,15 @@ const Calculator = () => {
 										render={({ field }) => (
 											<FormItem className="self-end w-full shrink grow basis-32">
 												<Select
-													onValueChange={field.onChange}
+													onValueChange={(val: VoltageUnit) =>
+														handleSelectChange(
+															val,
+															field,
+															'voltageUnit',
+															'voltage',
+															voltageUnitValues
+														)
+													}
 													defaultValue={field.value}
 												>
 													<FormControl>
@@ -282,7 +315,6 @@ const Calculator = () => {
 														{...field}
 														placeholder="2"
 														type="number"
-														min={0}
 														onBlur={(e) =>
 															isFieldEmpty(e) &&
 															form.setValue('current', 0)
@@ -301,7 +333,15 @@ const Calculator = () => {
 										render={({ field }) => (
 											<FormItem className="self-end w-full shrink grow basis-32">
 												<Select
-													onValueChange={field.onChange}
+													onValueChange={(val: VoltageUnit) =>
+														handleSelectChange(
+															val,
+															field,
+															'currentUnit',
+															'current',
+															currentUnitValues
+														)
+													}
 													defaultValue={field.value}
 												>
 													<FormControl>
@@ -348,7 +388,6 @@ const Calculator = () => {
 														{...field}
 														placeholder="2"
 														type="number"
-														min={0}
 														onBlur={(e) =>
 															isFieldEmpty(e) &&
 															form.setValue('power', 0)
@@ -365,7 +404,15 @@ const Calculator = () => {
 										render={({ field }) => (
 											<FormItem className="self-end w-full shrink grow basis-32">
 												<Select
-													onValueChange={field.onChange}
+													onValueChange={(val: VoltageUnit) =>
+														handleSelectChange(
+															val,
+															field,
+															'powerUnit',
+															'power',
+															powerUnitValues
+														)
+													}
 													defaultValue={field.value}
 												>
 													<FormControl>
@@ -423,7 +470,10 @@ const Calculator = () => {
 					<div className="flex gap-2 flex-wrap">
 						<Input
 							className="w-full shrink grow basis-32"
-							value={result.value * Number(resultsMultiplier)}
+							value={round(
+								result.value * Number(resultsMultiplier),
+								getDecimalPlaces(result.value * Number(resultsMultiplier))
+							)}
 							type="number"
 							readOnly
 						/>
