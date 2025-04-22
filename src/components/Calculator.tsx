@@ -168,7 +168,7 @@ const Calculator = () => {
 													<Input
 														className="w-full"
 														{...field}
-														placeholder="2"
+														placeholder="12"
 														type="number"
 														onBlur={(e) =>
 															isFieldEmpty(e) &&
@@ -312,7 +312,7 @@ const Calculator = () => {
 													<Input
 														className="w-full"
 														{...field}
-														placeholder="2"
+														placeholder="24"
 														type="number"
 														onBlur={(e) =>
 															isFieldEmpty(e) &&
