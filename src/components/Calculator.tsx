@@ -90,13 +90,14 @@ const formSchema = z.object({
 	powerUnit: z.string(),
 });
 
+const resultsFormSchema = z.object({
+	multiplier: z.number(),
+});
+
 const Calculator = () => {
 	const [calcMode, setCalcMode] = useState<'power' | 'current' | 'voltage'>('power');
 	const [isCalculated, setIsCalculated] = useState(false);
-	const [result, setResult] = useState({
-		value: 0,
-		unit: '',
-	});
+	const [result, setResult] = useState({ value: 0 });
 
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),
@@ -110,6 +111,15 @@ const Calculator = () => {
 		},
 	});
 
+	const resultsForm = useForm<z.infer<typeof resultsFormSchema>>({
+		resolver: zodResolver(resultsFormSchema),
+		defaultValues: {
+			multiplier: 1,
+		},
+	});
+
+	const resultsMultiplier = resultsForm.watch('multiplier');
+
 	const {
 		formState: { errors },
 	} = form;
@@ -118,7 +128,7 @@ const Calculator = () => {
 		// V = voltage in volts (V) or P / I
 		// I  = current in amps (A) or P / V
 		// P = power in watts (W) or I * V
-		const { current, power, voltage, voltageUnit } = values;
+		const { current, power, voltage, voltageUnit, currentUnit, powerUnit } = values;
 
 		const V = isFinite(power / current) ? power / current : 0;
 		const I = isFinite(power / voltage) ? power / voltage : 0;
@@ -126,11 +136,29 @@ const Calculator = () => {
 
 		setIsCalculated(true);
 
-		if (calcMode === 'power')
-			setResult({
+		if (calcMode === 'power') {
+			setResult((prev) => ({
+				...prev,
 				value: P,
+				unit: powerUnit,
+			}));
+		}
+
+		if (calcMode === 'voltage') {
+			setResult((prev) => ({
+				...prev,
+				value: V,
 				unit: voltageUnit,
-			});
+			}));
+		}
+
+		if (calcMode === 'current') {
+			setResult((prev) => ({
+				...prev,
+				value: I,
+				unit: currentUnit,
+			}));
+		}
 
 		return { V, I, P };
 	};
@@ -155,6 +183,7 @@ const Calculator = () => {
 							setCalcMode(e as 'power' | 'current' | 'voltage');
 							form.reset();
 							setIsCalculated(false);
+							resultsForm.setValue('multiplier', 1);
 						}}
 						value={calcMode}
 					>
@@ -391,8 +420,70 @@ const Calculator = () => {
 						<Separator className="my-4 flex-1" />
 					</div>
 
-					<div>
-						<Input value={result.value} type="number" readOnly />
+					<div className="flex gap-2 flex-wrap">
+						<Input
+							className="w-full shrink grow basis-32"
+							value={result.value * Number(resultsMultiplier)}
+							type="number"
+							readOnly
+						/>
+
+						<Form {...form}>
+							<form className="w-full shrink grow basis-32">
+								<FormField
+									control={resultsForm.control}
+									name="multiplier"
+									render={({ field }) => (
+										<FormItem>
+											<Select
+												onValueChange={field.onChange}
+												defaultValue={String(field.value)}
+											>
+												<FormControl>
+													<SelectTrigger className="w-full shrink grow basis-32">
+														<SelectValue />
+													</SelectTrigger>
+												</FormControl>
+
+												<SelectContent>
+													{calcMode == 'power' &&
+														powerUnitValues.map((u, i) => (
+															<SelectItem
+																key={`${u.value}-${i}-res`}
+																value={String(u.multiplier)}
+															>
+																{u.label} ({u.value})
+															</SelectItem>
+														))}
+
+													{calcMode == 'voltage' &&
+														voltageUnitValues.map((u, i) => (
+															<SelectItem
+																key={`${u.value}-${i}-res`}
+																value={String(u.multiplier)}
+															>
+																{u.label} ({u.value})
+															</SelectItem>
+														))}
+
+													{calcMode == 'current' &&
+														currentUnitValues.map((u, i) => (
+															<SelectItem
+																key={`${u.value}-${i}-res`}
+																value={String(u.multiplier)}
+															>
+																{u.label} ({u.value})
+															</SelectItem>
+														))}
+												</SelectContent>
+											</Select>
+
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</form>
+						</Form>
 					</div>
 				</div>
 			)}
